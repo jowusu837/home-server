@@ -1,0 +1,10 @@
+# Additional Traefik configuration can go here
+http:
+  middlewares:
+    secureHeaders:
+      headers:
+        sslRedirect: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000 

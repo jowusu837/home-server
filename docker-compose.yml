@@ -1,0 +1,46 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/data:/data
+      - ./traefik/config/traefik.yml:/traefik.yml:ro
+      - ./traefik/config/config.yml:/config.yml:ro
+      - ./traefik/certs:/certs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN:-gateway.lan}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+
+  emby:
+    image: emby/embyserver:latest
+    container_name: emby
+    restart: unless-stopped
+    ports:
+      - "9096:8096"
+    volumes:
+      - ./emby/config:/config
+      - ./emby/cache:/cache
+      - ${MEDIA_PATH}:/media
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Africa/Accra}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.emby.entrypoints=websecure"
+      - "traefik.http.routers.emby.rule=Host(`${EMBY_DOMAIN:-emby.lan}`)"
+      - "traefik.http.routers.emby.tls=true"
+      - "traefik.http.services.emby.loadbalancer.server.port=8096"
