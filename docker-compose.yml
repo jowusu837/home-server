@@ -33,7 +33,7 @@ services:
     volumes:
       - ./emby/config:/config
       - ./emby/cache:/cache
-      - ${MEDIA_PATH}:/media
+      - media:/media:ro
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -44,3 +44,10 @@ services:
       - "traefik.http.routers.emby.rule=Host(`${EMBY_DOMAIN:-emby.lan}`)"
       - "traefik.http.routers.emby.tls=true"
       - "traefik.http.services.emby.loadbalancer.server.port=8096"
+
+volumes:
+  media:
+    driver_opts:
+      type: cifs
+      o: username=${CIFS_USERNAME},password=${CIFS_PASSWORD},uid=${PUID:-1000},gid=${PGID:-1000},vers=3.0
+      device: //${CIFS_SERVER}/${CIFS_MOUNT_POINT}
