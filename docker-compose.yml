@@ -24,26 +24,108 @@ services:
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
       - "traefik.http.routers.traefik.middlewares=traefik-auth"
 
+  cifs-manager:
+    image: alpine:latest
+    container_name: cifs-manager
+    restart: unless-stopped
+    volumes:
+      - media:/media
+    environment:
+      - CIFS_SERVER=${CIFS_SERVER}
+      - CIFS_MOUNT_POINT=${CIFS_MOUNT_POINT}
+      - CIFS_USERNAME=${CIFS_USERNAME}
+      - CIFS_PASSWORD=${CIFS_PASSWORD}
+    command: >
+      sh -c "
+        apk add --no-cache cifs-utils &&
+        while true; do
+          if ! ls /media > /dev/null 2>&1; then
+            echo 'Mounting media share...' &&
+            mount -t cifs //${CIFS_SERVER}/${CIFS_MOUNT_POINT} /media \
+              -o username=${CIFS_USERNAME},password=${CIFS_PASSWORD},vers=3.0,uid=1000,gid=1000,file_mode=0777,dir_mode=0777 &&
+            sleep 2
+          fi &&
+          sleep 300
+        done
+      "
+    healthcheck:
+      test: ["CMD", "ls", "/media"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   emby:
     image: emby/embyserver:latest
     container_name: emby
     restart: unless-stopped
     ports:
       - "9096:8096"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8096/emby/system/info/public"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     volumes:
       - ./emby/config:/config
       - ./emby/cache:/cache
+      - ./iptv/playlists:/playlists:ro
       - media:/media:ro
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
+      - EMBY_SERVER_HTTP_TIMEOUT=3600
+      - EMBY_SERVER_HTTP_KEEP_ALIVE=true
+      - EMBY_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
+    depends_on:
+      cifs-manager:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.emby.entrypoints=websecure"
       - "traefik.http.routers.emby.rule=Host(`${EMBY_DOMAIN:-emby.lan}`)"
       - "traefik.http.routers.emby.tls=true"
       - "traefik.http.services.emby.loadbalancer.server.port=8096"
+      - "traefik.http.middlewares.emby-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
+      - "traefik.http.routers.emby.middlewares=emby-keepalive"
+
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - "9097:8096"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "Accept: application/json", "http://localhost:8096/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    volumes:
+      - ./jellyfin/config:/config
+      - ./jellyfin/cache:/cache
+      - ./iptv/playlists:/playlists:ro
+      - media:/media:ro
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Africa/Accra}
+      - JELLYFIN_SERVER_HTTP_TIMEOUT=3600
+      - JELLYFIN_SERVER_HTTP_KEEP_ALIVE=true
+      - JELLYFIN_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
+    depends_on:
+      cifs-manager:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin.rule=Host(`${JELLYFIN_DOMAIN:-jellyfin.lan}`)"
+      - "traefik.http.routers.jellyfin.tls=true"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+      - "traefik.http.middlewares.jellyfin-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
+      - "traefik.http.routers.jellyfin.middlewares=jellyfin-keepalive"
 
 volumes:
   media:

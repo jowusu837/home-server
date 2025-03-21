@@ -1,0 +1,12 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="RedBullTV.at" tvg-logo="https://i.imgur.com/7NeBmWX.jpg" group-title="Sports",Red Bull TV
+https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
+
+#EXTINF:-1 tvg-id="NASATVPublic.us" tvg-logo="https://i.imgur.com/CH6VcTR.jpg" group-title="Science",NASA TV
+https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8
+
+#EXTINF:-1 tvg-id="WeatherNation.us" tvg-logo="https://i.imgur.com/X23p0GB.png" group-title="Weather",Weather Nation
+https://weathernationtv.samsung.wurl.com/manifest/playlist.m3u8
+
+#EXTINF:-1 tvg-id="ABCNewsLive.us" tvg-logo="https://i.imgur.com/7sJLzKi.png" group-title="News",ABC News Live
+https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8 

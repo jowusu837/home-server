@@ -9,6 +9,10 @@ traefik/certs/
 emby/config/
 emby/cache/
 
+# Jellyfin data
+jellyfin/config/
+jellyfin/cache/
+
 # Logs
 *.log
 
