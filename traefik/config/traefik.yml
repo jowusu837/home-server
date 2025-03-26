@@ -19,12 +19,12 @@ providers:
   file:
     filename: /config.yml
 
-certificatesResolvers:
-  default:
-    acme:
-      email: ${ACME_EMAIL}
-      storage: /data/acme.json
-      tlsChallenge: {}
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/certificate.crt
+        keyFile: /certs/private.key
 
 log:
   level: INFO 
