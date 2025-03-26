@@ -42,3 +42,6 @@ Thumbs.db
 .vscode/
 *.sublime-workspace
 *.sublime-project 
+
+# Portainer data
+portainer/data/
