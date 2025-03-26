@@ -25,7 +25,7 @@ services:
       - "traefik.http.routers.traefik.middlewares=traefik-auth"
 
   cifs-manager:
-    image: alpine:latest
+    build: ./cifs-manager
     container_name: cifs-manager
     restart: unless-stopped
     volumes:
@@ -35,19 +35,6 @@ services:
       - CIFS_MOUNT_POINT=${CIFS_MOUNT_POINT}
       - CIFS_USERNAME=${CIFS_USERNAME}
       - CIFS_PASSWORD=${CIFS_PASSWORD}
-    command: >
-      sh -c "
-        apk add --no-cache cifs-utils &&
-        while true; do
-          if ! ls /media > /dev/null 2>&1; then
-            echo 'Mounting media share...' &&
-            mount -t cifs //${CIFS_SERVER}/${CIFS_MOUNT_POINT} /media \
-              -o username=${CIFS_USERNAME},password=${CIFS_PASSWORD},vers=3.0,uid=1000,gid=1000,file_mode=0777,dir_mode=0777 &&
-            sleep 2
-          fi &&
-          sleep 300
-        done
-      "
     healthcheck:
       test: ["CMD", "ls", "/media"]
       interval: 30s
