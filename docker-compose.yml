@@ -139,6 +139,14 @@ services:
       - "traefik.http.middlewares.jellyfin-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
       - "traefik.http.routers.jellyfin.middlewares=jellyfin-keepalive"
 
+  jellyfin-tizen-installer:
+    image: ghcr.io/georift/install-jellyfin-tizen:latest
+    container_name: jellyfin-tizen-installer
+    restart: "no"
+    command: ${TV_IP} ${JELLYFIN_TIZEN_BUILD:-Jellyfin-TrueHD}
+    networks:
+      - traefik_network
+
   cert-manager:
     build:
       context: ./cert-manager
