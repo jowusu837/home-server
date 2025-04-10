@@ -10,3 +10,6 @@ https://weathernationtv.samsung.wurl.com/manifest/playlist.m3u8
 
 #EXTINF:-1 tvg-id="ABCNewsLive.us" tvg-logo="https://i.imgur.com/7sJLzKi.png" group-title="News",ABC News Live
 https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8 
+
+#EXTINF:-1 tvg-id="BBCWorld.us" tvg-logo="https://cloveworld.org/mobile/admin/channels/art/614c9437b3b538klp4uairfvd1632408631.jpg" group-title="Kids",LoveToons TV
+https://zkpywpmblbeg-hls-live.5centscdn.com/9346_push_4321_002/3cb801a1be6f29310b96fc5e9ec083be.sdp/playlist.m3u8 

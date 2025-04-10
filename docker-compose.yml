@@ -151,9 +151,6 @@ services:
     image: vitalets/tizen-webos-sdk:latest
     container_name: emby-tizen-installer
     restart: "no"
-    depends_on:
-      jellyfin-tizen-installer:
-        condition: service_completed_successfully
     volumes:
       - ./emby-tizen:/app
       - emby-tizen-data:/home/developer
