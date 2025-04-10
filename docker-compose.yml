@@ -147,6 +147,33 @@ services:
     networks:
       - traefik_network
 
+  emby-tizen-installer:
+    image: vitalets/tizen-webos-sdk:latest
+    container_name: emby-tizen-installer
+    restart: "no"
+    depends_on:
+      jellyfin-tizen-installer:
+        condition: service_completed_successfully
+    volumes:
+      - ./emby-tizen:/app
+      - emby-tizen-data:/home/developer
+    environment:
+      - TV_IP=${TV_IP}
+    command: >
+      bash -c "
+        echo 'Downloading Emby Tizen package...' &&
+        curl -L https://github.com/MediaBrowser/Emby.Releases/raw/master/tizen/tizen.zip -o /app/tizen.zip &&
+        echo 'Extracting package...' &&
+        unzip -o /app/tizen.zip -d /app &&
+        echo 'Connecting to TV...' &&
+        sdb connect $${TV_IP} &&
+        echo 'Installing Emby...' &&
+        sdb -s $${TV_IP}:26101 shell 0 pkgcmd -i -t tpk -p /app/userwidget/emby.tmg &&
+        echo '✅ Emby has been successfully installed on your Samsung TV!'
+      "
+    networks:
+      - traefik_network
+
   cert-manager:
     build:
       context: ./cert-manager
@@ -166,6 +193,8 @@ volumes:
       type: cifs
       o: username=${CIFS_USERNAME},password=${CIFS_PASSWORD},uid=${PUID:-1000},gid=${PGID:-1000},vers=3.0
       device: //${CIFS_SERVER}/${CIFS_MOUNT_POINT}
+  emby-tizen-data:
+    name: emby-tizen-data
 
 networks:
   traefik_network:
