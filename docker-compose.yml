@@ -63,43 +63,43 @@ services:
       retries: 3
       start_period: 30s
 
-  emby:
-    image: emby/embyserver:latest
-    container_name: emby
-    restart: unless-stopped
-    ports:
-      - "9096:8096"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8096/emby/system/info/public"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 90s
-    volumes:
-      - ./emby/config:/config
-      - ./emby/cache:/cache
-      - ./iptv/playlists:/playlists:ro
-      - media:/media:ro
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-Africa/Accra}
-      - EMBY_SERVER_HTTP_TIMEOUT=3600
-      - EMBY_SERVER_HTTP_KEEP_ALIVE=true
-      - EMBY_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
-    depends_on:
-      cifs-manager:
-        condition: service_healthy
-    networks:
-      - traefik_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.emby.entrypoints=websecure"
-      - "traefik.http.routers.emby.rule=Host(`${EMBY_DOMAIN:-emby.lan}`)"
-      - "traefik.http.routers.emby.tls=true"
-      - "traefik.http.services.emby.loadbalancer.server.port=8096"
-      - "traefik.http.middlewares.emby-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
-      - "traefik.http.routers.emby.middlewares=emby-keepalive"
+  # emby:
+  #   image: emby/embyserver:latest
+  #   container_name: emby
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9096:8096"
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8096/emby/system/info/public"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 90s
+  #   volumes:
+  #     - ./emby/config:/config
+  #     - ./emby/cache:/cache
+  #     - ./iptv/playlists:/playlists:ro
+  #     - media:/media:ro
+  #   environment:
+  #     - PUID=${PUID:-1000}
+  #     - PGID=${PGID:-1000}
+  #     - TZ=${TZ:-Africa/Accra}
+  #     - EMBY_SERVER_HTTP_TIMEOUT=3600
+  #     - EMBY_SERVER_HTTP_KEEP_ALIVE=true
+  #     - EMBY_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
+  #   depends_on:
+  #     cifs-manager:
+  #       condition: service_healthy
+  #   networks:
+  #     - traefik_network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.emby.entrypoints=websecure"
+  #     - "traefik.http.routers.emby.rule=Host(`${EMBY_DOMAIN:-emby.lan}`)"
+  #     - "traefik.http.routers.emby.tls=true"
+  #     - "traefik.http.services.emby.loadbalancer.server.port=8096"
+  #     - "traefik.http.middlewares.emby-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
+  #     - "traefik.http.routers.emby.middlewares=emby-keepalive"
 
   jellyfin:
     image: jellyfin/jellyfin:latest
@@ -147,29 +147,29 @@ services:
     networks:
       - traefik_network
 
-  emby-tizen-installer:
-    image: vitalets/tizen-webos-sdk:latest
-    container_name: emby-tizen-installer
-    restart: "no"
-    volumes:
-      - ./emby-tizen:/app
-      - emby-tizen-data:/home/developer
-    environment:
-      - TV_IP=${TV_IP}
-    command: >
-      bash -c "
-        echo 'Downloading Emby Tizen package...' &&
-        curl -L https://github.com/MediaBrowser/Emby.Releases/raw/master/tizen/tizen.zip -o /app/tizen.zip &&
-        echo 'Extracting package...' &&
-        unzip -o /app/tizen.zip -d /app &&
-        echo 'Connecting to TV...' &&
-        sdb connect $${TV_IP} &&
-        echo 'Installing Emby...' &&
-        sdb -s $${TV_IP}:26101 shell 0 pkgcmd -i -t tpk -p /app/userwidget/emby.tmg &&
-        echo '✅ Emby has been successfully installed on your Samsung TV!'
-      "
-    networks:
-      - traefik_network
+  # emby-tizen-installer:
+  #   image: vitalets/tizen-webos-sdk:latest
+  #   container_name: emby-tizen-installer
+  #   restart: "no"
+  #   volumes:
+  #     - ./emby-tizen:/app
+  #     - emby-tizen-data:/home/developer
+  #   environment:
+  #     - TV_IP=${TV_IP}
+  #   command: >
+  #     bash -c "
+  #       echo 'Downloading Emby Tizen package...' &&
+  #       curl -L https://github.com/MediaBrowser/Emby.Releases/raw/master/tizen/tizen.zip -o /app/tizen.zip &&
+  #       echo 'Extracting package...' &&
+  #       unzip -o /app/tizen.zip -d /app &&
+  #       echo 'Connecting to TV...' &&
+  #       sdb connect $${TV_IP} &&
+  #       echo 'Installing Emby...' &&
+  #       sdb -s $${TV_IP}:26101 shell 0 pkgcmd -i -t tpk -p /app/userwidget/emby.tmg &&
+  #       echo '✅ Emby has been successfully installed on your Samsung TV!'
+  #     "
+  #   networks:
+  #     - traefik_network
 
   cert-manager:
     build:
