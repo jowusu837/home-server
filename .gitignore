@@ -5,13 +5,11 @@
 traefik/data/
 traefik/certs/
 
-# Emby data
-emby/config/
-emby/cache/
-
 # Jellyfin data
 jellyfin/config/
 jellyfin/cache/
+jellyfin/media/*
+!jellyfin/media/channels.m3u
 
 # Logs
 *.log
@@ -45,6 +43,3 @@ Thumbs.db
 
 # Portainer data
 portainer/data/
-
-# Emby Tizen data
-emby-tizen
