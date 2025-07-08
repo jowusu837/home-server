@@ -60,7 +60,13 @@ services:
     volumes:
       - ./jellyfin/config:/config
       - ./jellyfin/cache:/cache
-      - ./media:/media
+      - ./jellyfin/media:/media
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/media0:/dev/media0
+      - /dev/media1:/dev/media1
+    group_add:
+      - video
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -68,6 +74,8 @@ services:
       - JELLYFIN_SERVER_HTTP_TIMEOUT=3600
       - JELLYFIN_SERVER_HTTP_KEEP_ALIVE=true
       - JELLYFIN_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
+      - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
+      # - JELLYFIN_SERVER_HTTP_MAX_BITRATE=5000000
     networks:
       - traefik_network
     labels:
