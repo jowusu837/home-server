@@ -1,3 +1,8 @@
+# Environment variables
+x-common-env: &common-env
+  JELLYFIN_HOST_IP: ${JELLYFIN_HOST_IP:-192.168.1.110}
+  JELLYFIN_PORT: ${JELLYFIN_PORT:-9097}
+
 services:
   traefik:
     image: traefik:v2.10
@@ -50,11 +55,11 @@ services:
     container_name: jellyfin
     restart: unless-stopped
     ports:
-      - "9097:8096"
+      - "${JELLYFIN_PORT}:8096"
     healthcheck:
-      test: ["CMD", "curl", "-f", "-H", "Accept: application/json", "http://localhost:8096/health"]
-      interval: 15s
-      timeout: 5s
+      test: ["CMD", "sh", "-c", "curl -f -H 'Accept: application/json' http://localhost:8096/health && curl -f -s -m 5 http://${JELLYFIN_HOST_IP}:${JELLYFIN_PORT}/health > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
       retries: 3
       start_period: 90s
     volumes:
@@ -94,6 +99,29 @@ services:
     command: ${TV_IP} ${JELLYFIN_TIZEN_BUILD:-Jellyfin-TrueHD}
     networks:
       - traefik_network
+
+  jellyfin-lan-healthcheck:
+    image: curlimages/curl:latest
+    container_name: jellyfin-lan-healthcheck
+    network_mode: host
+    environment:
+      - JELLYFIN_HOST_IP=${JELLYFIN_HOST_IP}
+      - JELLYFIN_PORT=${JELLYFIN_PORT}
+    entrypoint: >
+      sh -c '
+        while true; do
+          if curl -fs http://${JELLYFIN_HOST_IP}:${JELLYFIN_PORT}/health; then
+            echo "LAN healthcheck passed";
+            sleep 30;
+          else
+            echo "LAN healthcheck failed";
+            exit 1;
+          fi
+        done
+      '
+    restart: unless-stopped
+    depends_on:
+      - jellyfin
 
   cert-manager:
     build:
