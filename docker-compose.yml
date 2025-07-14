@@ -1,55 +1,8 @@
 # Environment variables
 x-common-env: &common-env
-  JELLYFIN_HOST_IP: ${JELLYFIN_HOST_IP:-192.168.1.110}
   JELLYFIN_PORT: ${JELLYFIN_PORT:-9097}
 
 services:
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/data:/data
-      - ./traefik/config/traefik.yml:/traefik.yml:ro
-      - ./traefik/config/config.yml:/config.yml:ro
-      - ./traefik/certs:/certs
-    networks:
-      - traefik_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN:-gateway.lan}`)"
-      - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.tls=true"
-      # - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
-      # - "traefik.http.routers.traefik.middlewares=traefik-auth"
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./portainer/data:/data
-    networks:
-      - traefik_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_DOMAIN:-portainer.lan}`)"
-      - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
-
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
@@ -57,7 +10,7 @@ services:
     ports:
       - "${JELLYFIN_PORT}:8096"
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f -H 'Accept: application/json' http://localhost:8096/health && curl -f -s -m 5 http://${JELLYFIN_HOST_IP}:${JELLYFIN_PORT}/health > /dev/null 2>&1"]
+      test: ["CMD", "sh", "-c", "curl -f -H 'Accept: application/json' http://localhost:8096/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,67 +29,4 @@ services:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
-      - JELLYFIN_SERVER_HTTP_TIMEOUT=3600
-      - JELLYFIN_SERVER_HTTP_KEEP_ALIVE=true
-      - JELLYFIN_SERVER_HTTP_KEEP_ALIVE_TIMEOUT=3600
       - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
-      # - JELLYFIN_SERVER_HTTP_MAX_BITRATE=5000000
-    networks:
-      - traefik_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.jellyfin.entrypoints=websecure"
-      - "traefik.http.routers.jellyfin.rule=Host(`${JELLYFIN_DOMAIN:-jellyfin.lan}`)"
-      - "traefik.http.routers.jellyfin.tls=true"
-      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
-      - "traefik.http.middlewares.jellyfin-keepalive.headers.customrequestheaders.X-Forwarded-For=keep-alive"
-      - "traefik.http.routers.jellyfin.middlewares=jellyfin-keepalive"
-
-  jellyfin-tizen-installer:
-    image: ghcr.io/georift/install-jellyfin-tizen:latest
-    container_name: jellyfin-tizen-installer
-    restart: "no"
-    command: ${TV_IP} ${JELLYFIN_TIZEN_BUILD:-Jellyfin-TrueHD}
-    networks:
-      - traefik_network
-
-  jellyfin-lan-healthcheck:
-    image: curlimages/curl:latest
-    container_name: jellyfin-lan-healthcheck
-    network_mode: host
-    environment:
-      - JELLYFIN_HOST_IP=${JELLYFIN_HOST_IP}
-      - JELLYFIN_PORT=${JELLYFIN_PORT}
-    entrypoint: >
-      sh -c '
-        while true; do
-          if curl -fs http://${JELLYFIN_HOST_IP}:${JELLYFIN_PORT}/health; then
-            echo "LAN healthcheck passed";
-            sleep 30;
-          else
-            echo "LAN healthcheck failed";
-            exit 1;
-          fi
-        done
-      '
-    restart: unless-stopped
-    depends_on:
-      - jellyfin
-
-  cert-manager:
-    build:
-      context: ./cert-manager
-      dockerfile: Dockerfile
-    container_name: cert-manager
-    restart: unless-stopped
-    volumes:
-      - ./traefik/certs:/certs
-    networks:
-      - traefik_network
-    labels:
-      - "traefik.enable=false"
-
-
-networks:
-  traefik_network:
-    driver: bridge
