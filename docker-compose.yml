@@ -1,24 +1,25 @@
-# Environment variables
-x-common-env: &common-env
-  JELLYFIN_PORT: ${JELLYFIN_PORT:-9097}
-
 services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
+    user: ${PUID:-1000}:${PGID:-1000}
+    network_mode: host
     restart: unless-stopped
-    ports:
-      - "${JELLYFIN_PORT}:8096"
-    healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f -H 'Accept: application/json' http://localhost:8096/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
     volumes:
       - ./jellyfin/config:/config
       - ./jellyfin/cache:/cache
-      - ./jellyfin/media:/media
+      - type: bind
+        source: ./jellyfin/media
+        target: /media
+      # - type: bind
+      #   source: ./jellyfin/media2
+      #   target: /media2
+      #   read_only: true
+      # # Optional - extra fonts to be used during transcoding with subtitle burn-in
+      # - type: bind
+      #   source: ./jellyfin/fonts
+      #   target: /usr/local/share/fonts/custom
+      #   read_only: true
     devices:
       - /dev/dri:/dev/dri
       - /dev/media0:/dev/media0
@@ -30,3 +31,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
       - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
+      - JELLYFIN_PublishedServerUrl=http://${JELLYFIN_HOST_IP:-localhost}:${JELLYFIN_PORT:-8096}
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    extra_hosts:
+      - host.docker.internal:host-gateway

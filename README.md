@@ -1,13 +1,11 @@
 # Home Media Server
 
-This repository contains configuration files for setting up a home media server using Docker Compose, with Emby for media streaming and Traefik as a reverse proxy.
+This repository contains configuration files for setting up a home media server using Docker Compose, with Jellyfin for media streaming.
 
 ## Features
 
-- **Emby Media Server**: Stream your media collection to any device
-- **Traefik Reverse Proxy**: Secure access with automatic SSL certificates
+- **Jellyfin Media Server**: Stream your media collection to any device
 - **Docker Compose**: Easy deployment and management
-- **Environment Configuration**: Customizable setup via environment variables
 
 ## Prerequisites
 
@@ -19,7 +17,7 @@ This repository contains configuration files for setting up a home media server 
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/home-media-server.git
+   git clone https://github.com/jowusu837/home-media-server.git
    cd home-media-server
    ```
 
@@ -44,49 +42,71 @@ This repository contains configuration files for setting up a home media server 
    docker-compose up -d
    ```
 
-5. Access your services:
-   - Emby: `https://media.server` (or your configured domain)
-   - Traefik Dashboard: `https://gateway.server` (or your configured domain)
+## Running Docker Compose at Boot with systemd
+
+To ensure your media server starts automatically after a reboot and only after the network is ready, you can use a systemd service:
+
+### 1. Create a systemd Service File
+
+Create a file at `/etc/systemd/system/home-media-server.service` with the following content (edit paths as needed):
+
+```ini
+[Unit]
+Description=Home Media Server (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/victor-owusu/home-server
+ExecStart=/usr/local/bin/docker-compose up -d
+ExecStop=/usr/local/bin/docker-compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- Adjust `WorkingDirectory` to your project path if different.
+- If `docker-compose` is not in `/usr/local/bin`, run `which docker-compose` to find the correct path.
+
+### 2. Enable and Start the Service
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable home-media-server.service
+sudo systemctl start home-media-server.service
+```
+
+This will start your containers at boot, after the network is up.
+
+### 3. Troubleshooting
+- Check status: `sudo systemctl status home-media-server.service`
+- View logs: `journalctl -u home-media-server.service`
+- If containers don't start, check that Docker and your network are up, and that the paths in the service file are correct.
 
 ## Configuration
-
-### Environment Variables
 
 The `.env` file contains all customizable parameters:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOMAIN` | Base domain for your services | `server` |
-| `TRAEFIK_SUBDOMAIN` | Subdomain for Traefik dashboard | `gateway` |
-| `EMBY_SUBDOMAIN` | Subdomain for Emby | `media` |
+| `JELLYFIN_PORT` | Port for Jellyfin | `9097` |
 | `PUID` | User ID for container permissions | `1000` |
 | `PGID` | Group ID for container permissions | `1000` |
 | `TZ` | Timezone | `Africa/Accra` |
-| `MEDIA_PATH` | Path to your media files | Required |
-| `TRAEFIK_DASHBOARD_AUTH` | HTTP Basic Auth for Traefik dashboard | Required |
-| `ACME_EMAIL` | Email for Let's Encrypt | Required |
-| `EMBY_PORT` | Internal port for Emby | `8096` |
 
-### Traefik Configuration
+### Jellyfin Configuration
 
-Traefik is configured to:
-- Redirect HTTP to HTTPS
-- Automatically obtain SSL certificates from Let's Encrypt
-- Provide a secure dashboard with basic authentication
-- Apply security headers to all responses
-
-### Emby Configuration
-
-Emby is configured to:
-- Mount your media directory
-- Run with specified user/group permissions
-- Be accessible through Traefik with SSL
+   Jellyfin is configured to:
+   - Mount your media directory
+   - Run with specified user/group permissions
 
 ## Security Considerations
 
 - The `.env` file contains sensitive information and should not be committed to version control
-- The Traefik dashboard is protected with basic authentication
-- All connections are secured with SSL
 
 ## Maintenance
 
@@ -100,9 +120,7 @@ docker-compose up -d
 
 ### Common Issues
 
-- **SSL Certificate Issues**: Ensure your domain is correctly pointing to your server's IP
 - **Permission Problems**: Check the PUID and PGID values in your .env file
-- **Media Not Showing**: Verify the path in MEDIA_PATH and ensure it's accessible
 
 ## Troubleshooting
 
@@ -110,8 +128,7 @@ If you encounter issues:
 
 1. Check the logs:
    ```bash
-   docker-compose logs traefik
-   docker-compose logs emby
+   docker-compose logs jellyfin
    ```
 
 2. Verify your configuration:
@@ -121,7 +138,7 @@ If you encounter issues:
 
 3. Ensure all required directories exist and have proper permissions:
    ```bash
-   ls -la traefik/data traefik/config traefik/certs emby/config emby/cache
+   ls -la jellyfin/data jellyfin/config jellyfin/cache
    ```
 
 ## License
@@ -130,6 +147,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [Traefik](https://traefik.io/)
-- [Emby](https://emby.media/)
+- [Jellyfin](https://jellyfin.org/)
 - [Docker](https://www.docker.com/)
