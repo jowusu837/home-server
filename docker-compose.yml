@@ -3,8 +3,10 @@ services:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     user: ${PUID:-1000}:${PGID:-1000}
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - 9096:8096
+      - 9920:8920
     volumes:
       - ./jellyfin/config:/config
       - ./jellyfin/cache:/cache
@@ -31,7 +33,4 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
       - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
-      - JELLYFIN_PublishedServerUrl=http://${JELLYFIN_HOST_IP:-localhost}:${JELLYFIN_PORT:-8096}
-    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
-    extra_hosts:
-      - host.docker.internal:host-gateway
+      - JELLYFIN_PublishedServerUrl=http://${HOST_IP:-localhost}:9096
