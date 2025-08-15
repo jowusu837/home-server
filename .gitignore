@@ -6,10 +6,12 @@ traefik/data/
 traefik/certs/
 
 # Jellyfin data
-jellyfin/config/
-jellyfin/cache/
+jellyfin/config/*
+jellyfin/cache/*
 jellyfin/media/*
 !jellyfin/media/channels.m3u
+!jellyfin/config/empty
+!jellyfin/cache/empty
 
 # Logs
 *.log
