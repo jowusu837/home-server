@@ -1,15 +1,12 @@
 #EXTM3U
-#EXTINF:-1 tvg-id="RedBullTV.at" tvg-logo="https://i.imgur.com/7NeBmWX.jpg" group-title="Sports",Red Bull TV
-https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8
+#EXTINF:-1 tvg-id="LoveToonsTV" tvg-logo="https://cloveworld.org/mobile/admin/channels/art/614c9437b3b538klp4uairfvd1632408631.jpg" group-title="Loveworld",LoveToons TV
+https://zkpywpmblbeg-hls-live.5centscdn.com/9346_push_4321_002/3cb801a1be6f29310b96fc5e9ec083be.sdp/playlist.m3u8
 
-#EXTINF:-1 tvg-id="NASATVPublic.us" tvg-logo="https://i.imgur.com/CH6VcTR.jpg" group-title="Science",NASA TV
-https://ntv1.akamaized.net/hls/live/2014075/NASA-NTV1-HLS/master.m3u8
+#EXTINF:-1 tvg-id="LoveworldXP" tvg-logo="https://lxp.tv/tv/wp-content/uploads/2025/01/logo-new1.png" group-title="Loveworld",Loveworld XP
+https://vcpout-lw-wdc-01-sp.ceflixcdn.com/lxp/play1/playlist.m3u8
 
-#EXTINF:-1 tvg-id="WeatherNation.us" tvg-logo="https://i.imgur.com/X23p0GB.png" group-title="Weather",Weather Nation
-https://weathernationtv.samsung.wurl.com/manifest/playlist.m3u8
+#EXTINF:-1 tvg-id="LoveworldUS" tvg-logo="https://i.vimeocdn.com/player/720050?sig=982cdb8e92b710b5c07cc642eb1917b5d3e0f169b115801ddac63e207fbb966c&v=1" group-title="Loveworld",Loveworld USA
+https://cdn3.wowza.com/5/RGtVZkFxL3FOQkxX/LWU/ngrp:lwu.stream_all/playlist.m3u8
 
-#EXTINF:-1 tvg-id="ABCNewsLive.us" tvg-logo="https://i.imgur.com/7sJLzKi.png" group-title="News",ABC News Live
-https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8 
-
-#EXTINF:-1 tvg-id="BBCWorld.us" tvg-logo="https://cloveworld.org/mobile/admin/channels/art/614c9437b3b538klp4uairfvd1632408631.jpg" group-title="Kids",LoveToons TV
-https://zkpywpmblbeg-hls-live.5centscdn.com/9346_push_4321_002/3cb801a1be6f29310b96fc5e9ec083be.sdp/playlist.m3u8 
+#EXTINF:-1 tvg-id="LoveworldUK" tvg-logo="https://media.info/l/o/1/1379.1610557181.png" group-title="Loveworld",Loveworld UK
+https://vz-a3e9e23a-a58.b-cdn.net/ed093500-e9ec-4c8a-a198-ab816a09f3e1/playlist.m3u8
