@@ -31,7 +31,7 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
       - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
-      - JELLYFIN_PublishedServerUrl=http://${HOST_IP:-192.168.1.110}:8096
+      - JELLYFIN_PublishedServerUrl=http://${HOST_IP:-192.168.1.110}:9096
     # Optional - may be necessary for docker healthcheck to pass if running in host network mode
     extra_hosts:
       - 'host.docker.internal:host-gateway'
