@@ -35,3 +35,9 @@ services:
     # Optional - may be necessary for docker healthcheck to pass if running in host network mode
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
