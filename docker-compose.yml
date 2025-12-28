@@ -1,43 +1,131 @@
 services:
+  # ===========================================
+  # JELLYFIN - Media Streaming Server
+  # ===========================================
   jellyfin:
     image: jellyfin/jellyfin
     container_name: jellyfin
     user: ${PUID:-1000}:${PGID:-1000}
     network_mode: host
     volumes:
-      - ./jellyfin/config:/config
-      - ./jellyfin/cache:/cache
-      - type: bind
-        source: ./jellyfin/media
-        target: /media
-      # - type: bind
-      #   source: ./jellyfin/media2
-      #   target: /media2
-      #   read_only: true
-      # # Optional - extra fonts to be used during transcoding with subtitle burn-in
-      # - type: bind
-      #   source: ./jellyfin/fonts
-      #   target: /usr/local/share/fonts/custom
-      #   read_only: true
+      - /mnt/storage/jellyfin/config:/config
+      - /mnt/storage/jellyfin/cache:/cache
+      - /mnt/storage/jellyfin/media:/media
     restart: unless-stopped
     devices:
       - /dev/dri:/dev/dri
-      - /dev/media0:/dev/media0
-      - /dev/media1:/dev/media1
     group_add:
       - video
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Africa/Accra}
-      - JELLYFIN_FFMPEG_OPTIONS="-hwaccel qsv -hwaccel_device /dev/dri/renderD128 -init_hw_device qsv=qs:/dev/dri/renderD128"
-      - JELLYFIN_PublishedServerUrl=http://${HOST_IP:-server.lan}:9096
-    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+      - JELLYFIN_PublishedServerUrl=http://${HOSTNAME:-localhost}:8096
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://server.lan:9096/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # ===========================================
+  # IMMICH - Photo & Video Backup
+  # ===========================================
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    volumes:
+      - /mnt/storage/immich/upload:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env.immich
+    ports:
+      - 2283:2283
+    depends_on:
+      immich-redis:
+        condition: service_healthy
+      immich-database:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2283/api/server/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    volumes:
+      - immich-model-cache:/cache
+    env_file:
+      - .env.immich
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3003/ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  immich-redis:
+    container_name: immich_redis
+    image: redis:6.2-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  immich-database:
+    container_name: immich_postgres
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0
+    env_file:
+      - .env.immich
+    environment:
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - /mnt/storage/immich/pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d immich"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # SYNCTHING - File Synchronization
+  # ===========================================
+  syncthing:
+    container_name: syncthing
+    image: syncthing/syncthing:latest
+    hostname: home-server
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Africa/Accra}
+    volumes:
+      - /mnt/storage/syncthing/config:/var/syncthing/config
+      - /mnt/storage/syncthing/data:/var/syncthing/data
+    ports:
+      - 8384:8384       # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
+      - 21027:21027/udp # Local discovery
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8384/rest/noauth/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# ===========================================
+# VOLUMES
+# ===========================================
+volumes:
+  immich-model-cache:

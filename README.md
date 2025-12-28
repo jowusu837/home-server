@@ -1,151 +1,268 @@
-# Home Media Server
+# Home Server
 
-This repository contains configuration files for setting up a home media server using Docker Compose, with Jellyfin for media streaming.
+A self-hosted home server stack with media streaming, photo backup, and file synchronization, all running on Docker with redundant storage.
 
 ## Features
 
-- **Jellyfin Media Server**: Stream your media collection to any device
-- **Docker Compose**: Easy deployment and management
+- **Jellyfin** - Media streaming server (movies, TV shows, music)
+- **Immich** - Photo and video backup (iCloud/Google Photos replacement)
+- **Syncthing** - Peer-to-peer file synchronization
+- **mergerfs + SnapRAID** - Storage pooling with parity protection
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Arch Linux Desktop                       │
+├─────────────────────────────────────────────────────────────┤
+│  Docker Compose                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │  Jellyfin   │  │   Immich    │  │  Syncthing  │          │
+│  │  :8096      │  │  :2283      │  │  :8384      │          │
+│  └─────────────┘  └─────────────┘  └─────────────┘          │
+├─────────────────────────────────────────────────────────────┤
+│  Storage Layer                                               │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  mergerfs (/mnt/storage)                                ││
+│  │  └── /mnt/disk1 (4TB data)                              ││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  SnapRAID Parity                                        ││
+│  │  └── /mnt/parity1 (4TB parity)                          ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- Basic understanding of networking and Docker
-- Media files that you want to serve
+- Arch Linux with Docker and Docker Compose installed
+- 2x 4TB HDDs (one for data, one for parity)
+- `yay` or another AUR helper for installing mergerfs and snapraid
 
 ## Quick Start
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/jowusu837/home-media-server.git
-   cd home-media-server
-   ```
+### 1. Storage Setup (First Time Only)
 
-2. Run the setup script to create necessary directories and configure your environment:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-   
-   The script will:
-   - Create required directories
-   - Copy `.env.example` to `.env` if it doesn't exist
-   - Help you generate a password hash for the Traefik dashboard
-
-3. Edit the `.env` file with your specific configuration:
-   ```bash
-   nano .env
-   ```
-
-4. Start the services:
-   ```bash
-   docker-compose up -d
-   ```
-
-## Running Docker Compose at Boot with systemd
-
-To ensure your media server starts automatically after a reboot and only after the network is ready, you can use a systemd service:
-
-### 1. Create a systemd Service File
-
-Create a file at `/etc/systemd/system/home-media-server.service` with the following content (edit paths as needed):
-
-```ini
-[Unit]
-Description=Home Media Server (Docker Compose)
-Requires=docker.service
-After=docker.service network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/home/victor-owusu/home-server
-ExecStart=/usr/local/bin/docker-compose up -d
-ExecStop=/usr/local/bin/docker-compose down
-TimeoutStartSec=0
-
-[Install]
-WantedBy=multi-user.target
+Identify your drives:
+```bash
+lsblk -o NAME,SIZE,MODEL,SERIAL
 ```
 
-- Adjust `WorkingDirectory` to your project path if different.
-- If `docker-compose` is not in `/usr/local/bin`, run `which docker-compose` to find the correct path.
+Partition and format the drives:
+```bash
+# Partition both drives
+sudo parted /dev/sda --script mklabel gpt mkpart primary ext4 0% 100%
+sudo parted /dev/sdb --script mklabel gpt mkpart primary ext4 0% 100%
 
-### 2. Enable and Start the Service
+# Format with labels
+sudo mkfs.ext4 -L disk1 /dev/sda1    # Data drive
+sudo mkfs.ext4 -L parity1 /dev/sdb1  # Parity drive
+```
+
+Create mount points:
+```bash
+sudo mkdir -p /mnt/disk1 /mnt/parity1 /mnt/storage
+```
+
+Add to `/etc/fstab`:
+```
+LABEL=disk1    /mnt/disk1    ext4 defaults 0 2
+LABEL=parity1  /mnt/parity1  ext4 defaults 0 2
+/mnt/disk1 /mnt/storage fuse.mergerfs defaults,allow_other,use_ino,cache.files=partial,dropcacheonclose=true,category.create=mfs 0 0
+```
+
+Install required packages:
+```bash
+yay -S --noconfirm mergerfs snapraid
+```
+
+Mount everything:
+```bash
+sudo mount -a
+```
+
+### 2. Run Setup Script
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable home-media-server.service
-sudo systemctl start home-media-server.service
+chmod +x setup.sh
+./setup.sh
 ```
 
-This will start your containers at boot, after the network is up.
+This will:
+- Create all required directories
+- Generate `.env.immich` with a secure password
+- Install SnapRAID configuration
+- Set up daily SnapRAID sync timer
 
-### 3. Troubleshooting
-- Check status: `sudo systemctl status home-media-server.service`
-- View logs: `journalctl -u home-media-server.service`
-- If containers don't start, check that Docker and your network are up, and that the paths in the service file are correct.
+### 3. Start Services
 
-## Configuration
+```bash
+docker-compose up -d
+```
 
-The `.env` file contains all customizable parameters:
+### 4. Initial SnapRAID Sync
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JELLYFIN_PORT` | Port for Jellyfin | `9097` |
-| `PUID` | User ID for container permissions | `1000` |
-| `PGID` | Group ID for container permissions | `1000` |
-| `TZ` | Timezone | `Africa/Accra` |
+```bash
+sudo snapraid sync
+```
 
-### Jellyfin Configuration
+## Service Access
 
-   Jellyfin is configured to:
-   - Mount your media directory
-   - Run with specified user/group permissions
+| Service   | URL                      | Description                    |
+|-----------|--------------------------|--------------------------------|
+| Jellyfin  | http://localhost:8096    | Media streaming                |
+| Immich    | http://localhost:2283    | Photo/video backup             |
+| Syncthing | http://localhost:8384    | File sync web UI               |
 
-## Security Considerations
+## iPhone Setup
 
-- The `.env` file contains sensitive information and should not be committed to version control
+### Photo Backup with Immich
+1. Install **Immich** from the App Store
+2. Open the app and enter your server URL (e.g., `http://192.168.1.x:2283`)
+3. Create an account or log in
+4. Enable **Background Backup** in settings
+5. Grant photo library access
+
+### File Sync with Syncthing
+1. Install **Möbius Sync** from the App Store ($5)
+2. Open Syncthing web UI on your server (http://localhost:8384)
+3. Add your phone as a remote device using the device ID
+4. Configure shared folders
+
+## Storage Management
+
+### SnapRAID Commands
+
+```bash
+# Run parity sync (updates parity with changes)
+sudo snapraid sync
+
+# Check data integrity
+sudo snapraid scrub
+
+# Check status
+sudo snapraid status
+
+# Fix errors (after drive replacement)
+sudo snapraid fix
+```
+
+### Automated Sync
+
+SnapRAID syncs automatically every day at 3 AM via systemd timer.
+
+Check timer status:
+```bash
+systemctl status snapraid-sync.timer
+```
+
+View sync logs:
+```bash
+sudo journalctl -u snapraid-sync.service
+```
+
+## Directory Structure
+
+```
+/mnt/
+├── disk1/                    # 4TB data drive
+│   ├── jellyfin/media/       # Media files
+│   ├── immich/upload/        # Photo uploads
+│   ├── syncthing/data/       # Synced files
+│   └── .snapraid.content     # SnapRAID metadata
+├── parity1/                  # 4TB parity drive
+│   └── snapraid.parity       # Parity data
+└── storage/                  # mergerfs mount (use this!)
+    ├── jellyfin/
+    ├── immich/
+    └── syncthing/
+
+~/Work/home-server/           # This repository
+├── docker-compose.yml        # Service definitions
+├── setup.sh                  # Setup script
+├── snapraid.conf             # SnapRAID configuration
+├── snapraid-sync.sh          # Sync automation script
+├── snapraid-sync.service     # Systemd service
+├── snapraid-sync.timer       # Systemd timer
+├── env.immich.example        # Immich env template
+├── .env                      # Main environment config
+├── .env.immich               # Immich environment (generated)
+└── jellyfin/                 # Jellyfin config (local)
+```
 
 ## Maintenance
 
-### Updating Services
+### Update Services
 
-To update the services to the latest versions:
 ```bash
 docker-compose pull
 docker-compose up -d
 ```
 
-### Common Issues
+### View Logs
 
-- **Permission Problems**: Check the PUID and PGID values in your .env file
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f immich-server
+docker-compose logs -f syncthing
+```
+
+### Backup Configuration
+
+Important files to backup:
+- `.env` and `.env.immich`
+- `jellyfin/config/`
+- `/mnt/storage/syncthing/config/`
+- Immich database (use Immich's built-in backup feature)
+
+## Expanding Storage
+
+When adding more data drives:
+
+1. Format and mount new drive as `/mnt/disk2`
+2. Update `/etc/fstab` mergerfs line:
+   ```
+   /mnt/disk1:/mnt/disk2 /mnt/storage fuse.mergerfs ...
+   ```
+3. Update `/etc/snapraid.conf`:
+   ```
+   data d2 /mnt/disk2
+   ```
+4. Remount and sync:
+   ```bash
+   sudo mount -a
+   sudo snapraid sync
+   ```
 
 ## Troubleshooting
 
-If you encounter issues:
+### Services won't start
+```bash
+# Check if storage is mounted
+df -h /mnt/storage
 
-1. Check the logs:
-   ```bash
-   docker-compose logs jellyfin
-   ```
+# Check Docker logs
+docker-compose logs
+```
 
-2. Verify your configuration:
-   ```bash
-   docker-compose config
-   ```
+### Permission issues
+```bash
+# Ensure correct ownership
+sudo chown -R $(id -u):$(id -g) /mnt/storage/
+```
 
-3. Ensure all required directories exist and have proper permissions:
-   ```bash
-   ls -la jellyfin/data jellyfin/config jellyfin/cache
-   ```
+### Immich database issues
+```bash
+# Restart database
+docker-compose restart immich-database
+
+# Check database health
+docker-compose exec immich-database pg_isready
+```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- [Jellyfin](https://jellyfin.org/)
-- [Docker](https://www.docker.com/)
+MIT License

@@ -1,0 +1,10 @@
+[Unit]
+Description=SnapRAID Sync and Scrub
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/vowusu/Work/home-server/snapraid-sync.sh
+Nice=19
+IOSchedulingClass=idle
+
