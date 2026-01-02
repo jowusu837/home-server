@@ -98,36 +98,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ===========================================
-  # SYNCTHING - File Synchronization
-  # ===========================================
-  syncthing:
-    container_name: syncthing
-    image: syncthing/syncthing:latest
-    hostname: home-server
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-Africa/Accra}
-    volumes:
-      - /mnt/storage/syncthing/config:/var/syncthing/config
-      - /mnt/storage/syncthing/data:/var/syncthing/data
-      - ~/Documents:/data/documents
-      - ~/Downloads:/data/downloads
-      - ~/Music:/data/music
-    ports:
-      - 8384:8384       # Web UI
-      - 22000:22000/tcp # TCP file transfers
-      - 22000:22000/udp # QUIC file transfers
-      - 21027:21027/udp # Local discovery
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8384/rest/noauth/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
 # ===========================================
 # VOLUMES
 # ===========================================

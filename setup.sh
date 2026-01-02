@@ -49,14 +49,9 @@ create_storage_dirs() {
         sudo mkdir -p /mnt/storage/immich/library
         sudo mkdir -p /mnt/storage/immich/pgdata
         
-        # Syncthing directories
-        sudo mkdir -p /mnt/storage/syncthing/config
-        sudo mkdir -p /mnt/storage/syncthing/data
-        
         # Set ownership to current user
         sudo chown -R $(id -u):$(id -g) /mnt/storage/jellyfin
         sudo chown -R $(id -u):$(id -g) /mnt/storage/immich
-        sudo chown -R $(id -u):$(id -g) /mnt/storage/syncthing
         
         echo -e "${GREEN}✓ Storage directories created${NC}"
     else
@@ -152,6 +147,37 @@ install_snapraid_timer() {
     fi
 }
 
+# Install rsync backup systemd timer
+install_rsync_backup_timer() {
+    echo "Installing rsync backup automation..."
+    
+    if [ -f rsync-backup.sh ] && [ -f rsync-backup.service ] && [ -f rsync-backup.timer ]; then
+        # Make script executable
+        chmod +x rsync-backup.sh
+        
+        # Create log file if it doesn't exist
+        sudo touch /var/log/rsync-backup.log
+        sudo chown $(id -u):$(id -g) /var/log/rsync-backup.log
+        
+        # Install systemd files
+        sudo cp rsync-backup.service /etc/systemd/system/
+        sudo cp rsync-backup.timer /etc/systemd/system/
+        
+        # Update service file path
+        sudo sed -i "s|ExecStart=.*|ExecStart=$(pwd)/rsync-backup.sh|" /etc/systemd/system/rsync-backup.service
+        
+        # Enable timer
+        sudo systemctl daemon-reload
+        sudo systemctl enable rsync-backup.timer
+        sudo systemctl start rsync-backup.timer
+        
+        echo -e "${GREEN}✓ Rsync backup timer installed and enabled${NC}"
+        echo "  Backup runs daily at 2 AM"
+    else
+        echo -e "${YELLOW}⚠ Rsync backup automation files not found${NC}"
+    fi
+}
+
 # Print summary
 print_summary() {
     echo ""
@@ -163,13 +189,17 @@ print_summary() {
     echo "3. Access the services:"
     echo "   - Jellyfin:  http://localhost:8096"
     echo "   - Immich:    http://localhost:2283"
-    echo "   - Syncthing: http://localhost:8384"
     echo ""
     echo "4. Run initial SnapRAID sync: sudo snapraid sync"
     echo ""
+    echo "Automated backups:"
+    echo "   - Rsync backup runs daily at 2 AM (~/Documents, ~/Downloads, ~/Music)"
+    echo "   - SnapRAID sync runs daily at 3 AM"
+    echo "   - Check backup status: systemctl status rsync-backup.timer"
+    echo "   - View backup logs: cat /var/log/rsync-backup.log"
+    echo ""
     echo "For iPhone setup:"
     echo "   - Install 'Immich' app from App Store for photo backup"
-    echo "   - Install 'Möbius Sync' app for Syncthing file sync"
     echo ""
 }
 
@@ -192,6 +222,10 @@ main() {
     # Install SnapRAID config and automation
     install_snapraid_config || true
     install_snapraid_timer || true
+    echo ""
+    
+    # Install rsync backup automation
+    install_rsync_backup_timer || true
     echo ""
     
     # Print summary

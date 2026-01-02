@@ -1,12 +1,12 @@
 # Home Server
 
-A self-hosted home server stack with media streaming, photo backup, and file synchronization, all running on Docker with redundant storage.
+A self-hosted home server stack with media streaming, photo backup, and automated backups, all running on Docker with redundant storage.
 
 ## Features
 
 - **Jellyfin** - Media streaming server (movies, TV shows, music)
 - **Immich** - Photo and video backup (iCloud/Google Photos replacement)
-- **Syncthing** - Peer-to-peer file synchronization
+- **Rsync Backup** - Automated daily backup of home folders (Documents, Downloads, Music)
 - **mergerfs + SnapRAID** - Storage pooling with parity protection
 
 ## Architecture
@@ -16,10 +16,10 @@ A self-hosted home server stack with media streaming, photo backup, and file syn
 │                     Arch Linux Desktop                       │
 ├─────────────────────────────────────────────────────────────┤
 │  Docker Compose                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  Jellyfin   │  │   Immich    │  │  Syncthing  │          │
-│  │  :8096      │  │  :2283      │  │  :8384      │          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
+│  ┌─────────────┐  ┌─────────────┐                           │
+│  │  Jellyfin   │  │   Immich    │                           │
+│  │  :8096      │  │  :2283      │                           │
+│  └─────────────┘  └─────────────┘                           │
 ├─────────────────────────────────────────────────────────────┤
 │  Storage Layer                                               │
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -92,7 +92,8 @@ This will:
 - Create all required directories
 - Generate `.env.immich` with a secure password
 - Install SnapRAID configuration
-- Set up daily SnapRAID sync timer
+- Set up daily SnapRAID sync timer (3 AM)
+- Set up daily rsync backup timer (2 AM)
 
 ### 3. Start Services
 
@@ -112,7 +113,6 @@ sudo snapraid sync
 |-----------|--------------------------|--------------------------------|
 | Jellyfin  | http://localhost:8096    | Media streaming                |
 | Immich    | http://localhost:2283    | Photo/video backup             |
-| Syncthing | http://localhost:8384    | File sync web UI               |
 
 ## iPhone Setup
 
@@ -122,12 +122,6 @@ sudo snapraid sync
 3. Create an account or log in
 4. Enable **Background Backup** in settings
 5. Grant photo library access
-
-### File Sync with Syncthing
-1. Install **Möbius Sync** from the App Store ($5)
-2. Open Syncthing web UI on your server (http://localhost:8384)
-3. Add your phone as a remote device using the device ID
-4. Configure shared folders
 
 ## Storage Management
 
@@ -161,6 +155,32 @@ View sync logs:
 sudo journalctl -u snapraid-sync.service
 ```
 
+### Automated Backup
+
+Home folders are backed up automatically every day at 2 AM via rsync.
+
+**Backed up folders:**
+- `~/Documents` → `/mnt/storage/Documents/`
+- `~/Downloads` → `/mnt/storage/Downloads/`
+- `~/Music` → `/mnt/storage/Music/`
+
+Check timer status:
+```bash
+systemctl status rsync-backup.timer
+```
+
+Run backup manually:
+```bash
+sudo systemctl start rsync-backup.service
+```
+
+View backup logs:
+```bash
+cat /var/log/rsync-backup.log
+```
+
+**Note:** Deleted files are preserved in the backup (rsync runs without `--delete`).
+
 ## Directory Structure
 
 ```
@@ -168,22 +188,26 @@ sudo journalctl -u snapraid-sync.service
 ├── disk1/                    # 4TB data drive
 │   ├── jellyfin/media/       # Media files
 │   ├── immich/upload/        # Photo uploads
-│   ├── syncthing/data/       # Synced files
 │   └── .snapraid.content     # SnapRAID metadata
 ├── parity1/                  # 4TB parity drive
 │   └── snapraid.parity       # Parity data
 └── storage/                  # mergerfs mount (use this!)
     ├── jellyfin/
     ├── immich/
-    └── syncthing/
+    ├── Documents/            # Backup of ~/Documents
+    ├── Downloads/            # Backup of ~/Downloads
+    └── Music/                # Backup of ~/Music
 
 ~/Work/home-server/           # This repository
 ├── docker-compose.yml        # Service definitions
 ├── setup.sh                  # Setup script
 ├── snapraid.conf             # SnapRAID configuration
-├── snapraid-sync.sh          # Sync automation script
-├── snapraid-sync.service     # Systemd service
-├── snapraid-sync.timer       # Systemd timer
+├── snapraid-sync.sh          # SnapRAID sync script
+├── snapraid-sync.service     # SnapRAID systemd service
+├── snapraid-sync.timer       # SnapRAID systemd timer
+├── rsync-backup.sh           # Rsync backup script
+├── rsync-backup.service      # Rsync systemd service
+├── rsync-backup.timer        # Rsync systemd timer
 ├── env.immich.example        # Immich env template
 ├── .env                      # Main environment config
 ├── .env.immich               # Immich environment (generated)
@@ -207,7 +231,7 @@ docker-compose logs -f
 
 # Specific service
 docker-compose logs -f immich-server
-docker-compose logs -f syncthing
+docker-compose logs -f jellyfin
 ```
 
 ### Backup Configuration
@@ -215,7 +239,6 @@ docker-compose logs -f syncthing
 Important files to backup:
 - `.env` and `.env.immich`
 - `jellyfin/config/`
-- `/mnt/storage/syncthing/config/`
 - Immich database (use Immich's built-in backup feature)
 
 ## Expanding Storage
