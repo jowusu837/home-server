@@ -49,9 +49,14 @@ create_storage_dirs() {
         sudo mkdir -p /mnt/storage/immich/library
         sudo mkdir -p /mnt/storage/immich/pgdata
         
+        # Syncthing directories
+        sudo mkdir -p /mnt/storage/syncthing/config
+        sudo mkdir -p /mnt/storage/syncthing/data
+        
         # Set ownership to current user
         sudo chown -R $(id -u):$(id -g) /mnt/storage/jellyfin
         sudo chown -R $(id -u):$(id -g) /mnt/storage/immich
+        sudo chown -R $(id -u):$(id -g) /mnt/storage/syncthing
         
         echo -e "${GREEN}✓ Storage directories created${NC}"
     else
@@ -158,11 +163,13 @@ print_summary() {
     echo "3. Access the services:"
     echo "   - Jellyfin:  http://localhost:8096"
     echo "   - Immich:    http://localhost:2283"
+    echo "   - Syncthing: http://localhost:8384"
     echo ""
     echo "4. Run initial SnapRAID sync: sudo snapraid sync"
     echo ""
     echo "For iPhone setup:"
     echo "   - Install 'Immich' app from App Store for photo backup"
+    echo "   - Install 'Möbius Sync' app for Syncthing file sync"
     echo ""
 }
 
