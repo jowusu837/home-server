@@ -11,6 +11,7 @@ services:
       - /mnt/storage/jellyfin/config:/config
       - /mnt/storage/jellyfin/cache:/cache
       - /mnt/storage/jellyfin/media:/media
+      - /run/systemd/resolve/stub-resolv.conf:/etc/resolv.conf:ro
     restart: unless-stopped
     devices:
       - /dev/dri:/dev/dri
