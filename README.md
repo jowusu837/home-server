@@ -112,31 +112,95 @@ sudo snapraid sync
 
 | Service         | URL                           | Description                    |
 |-----------------|-------------------------------|--------------------------------|
-| Jellyfin        | http://localhost:8096         | Media streaming                |
-| Immich          | http://localhost:2283         | Photo/video backup             |
-| Vaultwarden     | http://localhost:8222         | Password manager               |
-| Vaultwarden Admin | http://localhost:8222/admin | Admin panel (use ADMIN_TOKEN)  |
+| Jellyfin        | https://jellyfin.homeserver.local | Media streaming            |
+| Immich          | https://immich.homeserver.local   | Photo/video backup         |
+| Vaultwarden     | https://vault.homeserver.local    | Password manager           |
+
+> **Note:** Replace `homeserver.local` with your configured `BASE_DOMAIN` from `.env.caddy`
+
+## SSL Certificate Trust
+
+Caddy uses self-signed certificates (`tls internal`) for HTTPS on your local network. To avoid certificate warnings, you need to trust Caddy's root CA certificate on your devices.
+
+### Linux (Arch Linux)
+
+Run the provided script to export and install the certificate:
+
+```bash
+chmod +x trust-certificate.sh
+./trust-certificate.sh
+```
+
+This will:
+1. Export the CA certificate from the Caddy container
+2. Install it to `/etc/ca-certificates/trust-source/anchors/`
+3. Update the system trust store
+
+**Browser notes:**
+- **Chromium/Chrome:** Trusts system certificates automatically
+- **Firefox:** Uses its own store. Either:
+  - Import manually: Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import `caddy-root-ca.crt`
+  - Or enable system certs: Set `security.enterprise_roots.enabled` to `true` in `about:config`
+
+### iOS Devices
+
+1. **Export the certificate** (if not already done):
+   ```bash
+   docker exec caddy cat /data/caddy/pki/authorities/local/root.crt > caddy-root-ca.crt
+   ```
+
+2. **Transfer to iOS:** Send `caddy-root-ca.crt` to your device via AirDrop, email, or a file sharing app
+
+3. **Install the profile:**
+   - Open the certificate file on your iOS device
+   - Tap **Allow** when prompted to download the profile
+   - Go to **Settings → General → VPN & Device Management**
+   - Find the downloaded profile and tap **Install**
+
+4. **Enable full trust:**
+   - Go to **Settings → General → About → Certificate Trust Settings**
+   - Find "Caddy Local Authority" and toggle **Enable Full Trust**
+   - Confirm by tapping **Continue**
+
+After these steps, Safari and apps like Immich will trust your server's HTTPS certificates.
+
+### macOS
+
+1. Export the certificate (same as above)
+2. Double-click `caddy-root-ca.crt` to open in Keychain Access
+3. Add to the **System** keychain
+4. Find the certificate, double-click it, expand **Trust**, and set to **Always Trust**
+
+### Windows
+
+1. Export the certificate (same as above)
+2. Double-click `caddy-root-ca.crt`
+3. Click **Install Certificate** → **Local Machine** → **Next**
+4. Select **Place all certificates in the following store** → **Browse** → **Trusted Root Certification Authorities**
+5. Finish the wizard
 
 ## iPhone Setup
 
 ### Photo Backup with Immich
-1. Install **Immich** from the App Store
-2. Open the app and enter your server URL (e.g., `http://192.168.1.x:2283`)
-3. Create an account or log in
-4. Enable **Background Backup** in settings
-5. Grant photo library access
+1. **Trust the certificate first** (see [SSL Certificate Trust → iOS Devices](#ios-devices) above)
+2. Install **Immich** from the App Store
+3. Open the app and enter your server URL: `https://immich.homeserver.local`
+4. Create an account or log in
+5. Enable **Background Backup** in settings
+6. Grant photo library access
 
 ### Password Manager with Bitwarden
-1. Install **Bitwarden** from the App Store
-2. Tap the gear icon on the login screen
-3. Select **Self-hosted** and enter: `http://192.168.1.x:8222`
-4. Create an account or log in
-5. Enable **Face ID/Touch ID** for quick access
+1. **Trust the certificate first** (see [SSL Certificate Trust → iOS Devices](#ios-devices) above)
+2. Install **Bitwarden** from the App Store
+3. Tap the gear icon on the login screen
+4. Select **Self-hosted** and enter: `https://vault.homeserver.local`
+5. Create an account or log in
+6. Enable **Face ID/Touch ID** for quick access
 
 ## Vaultwarden Setup
 
 ### Initial Configuration
-1. Access the web vault at `http://localhost:8222`
+1. Access the web vault at `https://vault.homeserver.local`
 2. Create your account (first user)
 3. **Important:** After creating accounts, disable public signups:
    ```bash
@@ -271,6 +335,8 @@ Vaultwarden data is stored at `/mnt/storage/vaultwarden/data` and protected by S
 ~/Work/home-server/           # This repository
 ├── docker-compose.yml        # Service definitions
 ├── setup.sh                  # Setup script
+├── trust-certificate.sh      # SSL certificate trust setup
+├── caddy/Caddyfile           # Reverse proxy configuration
 ├── snapraid.conf             # SnapRAID configuration
 ├── snapraid-sync.sh          # SnapRAID sync script
 ├── snapraid-sync.service     # SnapRAID systemd service
@@ -281,6 +347,7 @@ Vaultwarden data is stored at `/mnt/storage/vaultwarden/data` and protected by S
 ├── env.immich.example        # Immich env template
 ├── .env                      # Main environment config
 ├── .env.immich               # Immich environment (generated)
+├── .env.caddy                # Caddy environment (BASE_DOMAIN)
 └── jellyfin/                 # Jellyfin config (local)
 ```
 

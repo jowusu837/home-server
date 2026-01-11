@@ -46,3 +46,6 @@ Thumbs.db
 
 # Portainer data
 portainer/data/
+
+# Caddy certificates
+caddy-root-ca.crt
