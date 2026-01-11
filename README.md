@@ -6,6 +6,7 @@ A self-hosted home server stack with media streaming, photo backup, and automate
 
 - **Jellyfin** - Media streaming server (movies, TV shows, music)
 - **Immich** - Photo and video backup (iCloud/Google Photos replacement)
+- **Vaultwarden** - Self-hosted password manager (Bitwarden-compatible)
 - **Rsync Backup** - Automated daily backup of home folders (Documents, Downloads, Music)
 - **mergerfs + SnapRAID** - Storage pooling with parity protection
 
@@ -16,10 +17,10 @@ A self-hosted home server stack with media streaming, photo backup, and automate
 │                     Arch Linux Desktop                       │
 ├─────────────────────────────────────────────────────────────┤
 │  Docker Compose                                              │
-│  ┌─────────────┐  ┌─────────────┐                           │
-│  │  Jellyfin   │  │   Immich    │                           │
-│  │  :8096      │  │  :2283      │                           │
-│  └─────────────┘  └─────────────┘                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  Jellyfin   │  │   Immich    │  │ Vaultwarden │         │
+│  │  :8096      │  │   :2283     │  │   :8222     │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
 ├─────────────────────────────────────────────────────────────┤
 │  Storage Layer                                               │
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -109,10 +110,12 @@ sudo snapraid sync
 
 ## Service Access
 
-| Service   | URL                      | Description                    |
-|-----------|--------------------------|--------------------------------|
-| Jellyfin  | http://localhost:8096    | Media streaming                |
-| Immich    | http://localhost:2283    | Photo/video backup             |
+| Service         | URL                           | Description                    |
+|-----------------|-------------------------------|--------------------------------|
+| Jellyfin        | http://localhost:8096         | Media streaming                |
+| Immich          | http://localhost:2283         | Photo/video backup             |
+| Vaultwarden     | http://localhost:8222         | Password manager               |
+| Vaultwarden Admin | http://localhost:8222/admin | Admin panel (use ADMIN_TOKEN)  |
 
 ## iPhone Setup
 
@@ -122,6 +125,61 @@ sudo snapraid sync
 3. Create an account or log in
 4. Enable **Background Backup** in settings
 5. Grant photo library access
+
+### Password Manager with Bitwarden
+1. Install **Bitwarden** from the App Store
+2. Tap the gear icon on the login screen
+3. Select **Self-hosted** and enter: `http://192.168.1.x:8222`
+4. Create an account or log in
+5. Enable **Face ID/Touch ID** for quick access
+
+## Vaultwarden Setup
+
+### Initial Configuration
+1. Access the web vault at `http://localhost:8222`
+2. Create your account (first user)
+3. **Important:** After creating accounts, disable public signups:
+   ```bash
+   # Edit .env and set:
+   VAULTWARDEN_SIGNUPS_ALLOWED=false
+   
+   # Restart the container
+   docker-compose up -d vaultwarden
+   ```
+
+### Admin Panel
+Access the admin panel at `http://localhost:8222/admin` using the `VAULTWARDEN_ADMIN_TOKEN` from your `.env` file.
+
+From the admin panel you can:
+- View all registered users
+- Invite new users
+- Manage organization settings
+- View server configuration
+
+### Browser Extensions
+1. Install the official **Bitwarden** extension (Firefox/Chrome/Edge)
+2. Click the extension icon → Settings (gear)
+3. Select **Self-hosted** environment
+4. Enter server URL: `http://localhost:8222`
+5. Log in with your account
+
+### Desktop Apps
+1. Download from [bitwarden.com/download](https://bitwarden.com/download/)
+2. Settings → Self-hosted → Enter server URL
+3. Log in with your account
+
+### CLI Tool (Optional)
+```bash
+npm install -g @bitwarden/cli
+bw config server http://localhost:8222
+bw login
+```
+
+### Security Recommendations
+- **Enable 2FA** for all accounts via web vault settings
+- **Disable admin panel** after initial setup (set `ADMIN_TOKEN=` empty in `.env`)
+- Store the admin token securely offline
+- Regular backups are automated (daily at 1:30 AM)
 
 ## Storage Management
 
@@ -181,6 +239,16 @@ cat /var/log/rsync-backup.log
 
 **Note:** Deleted files are preserved in the backup (rsync runs without `--delete`).
 
+### Vaultwarden Data Protection
+
+Vaultwarden data is stored at `/mnt/storage/vaultwarden/data` and protected by SnapRAID parity.
+
+**Critical files:**
+- `db.sqlite3` — Main database (passwords, settings)
+- `rsa_key.*` — Encryption keys (required for data recovery)
+- `attachments/` — File attachments
+- `sends/` — Bitwarden Send files
+
 ## Directory Structure
 
 ```
@@ -188,12 +256,14 @@ cat /var/log/rsync-backup.log
 ├── disk1/                    # 4TB data drive
 │   ├── jellyfin/media/       # Media files
 │   ├── immich/upload/        # Photo uploads
+│   ├── vaultwarden/data/     # Password vault data
 │   └── .snapraid.content     # SnapRAID metadata
 ├── parity1/                  # 4TB parity drive
 │   └── snapraid.parity       # Parity data
 └── storage/                  # mergerfs mount (use this!)
     ├── jellyfin/
     ├── immich/
+    ├── vaultwarden/          # Password manager data
     ├── Documents/            # Backup of ~/Documents
     ├── Downloads/            # Backup of ~/Downloads
     └── Music/                # Backup of ~/Music
@@ -237,9 +307,10 @@ docker-compose logs -f jellyfin
 ### Backup Configuration
 
 Important files to backup:
-- `.env` and `.env.immich`
+- `.env` and `.env.immich` (contains secrets!)
 - `jellyfin/config/`
 - Immich database (use Immich's built-in backup feature)
+- Vaultwarden data (protected by SnapRAID at `/mnt/storage/vaultwarden/`)
 
 ## Expanding Storage
 
@@ -284,6 +355,27 @@ docker-compose restart immich-database
 
 # Check database health
 docker-compose exec immich-database pg_isready
+```
+
+### Vaultwarden issues
+```bash
+# Check container logs
+docker-compose logs vaultwarden
+
+# Restart container
+docker-compose restart vaultwarden
+
+# Verify data directory permissions
+ls -la /mnt/storage/vaultwarden/data
+```
+
+### Restore Vaultwarden after drive failure
+```bash
+# If a data drive fails, use SnapRAID to recover:
+sudo snapraid fix
+
+# Then restart Vaultwarden
+docker-compose restart vaultwarden
 ```
 
 ## License

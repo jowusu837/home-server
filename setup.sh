@@ -49,9 +49,13 @@ create_storage_dirs() {
         sudo mkdir -p /mnt/storage/immich/library
         sudo mkdir -p /mnt/storage/immich/pgdata
         
+        # Vaultwarden directories (password manager)
+        sudo mkdir -p /mnt/storage/vaultwarden/data
+        
         # Set ownership to current user
         sudo chown -R $(id -u):$(id -g) /mnt/storage/jellyfin
         sudo chown -R $(id -u):$(id -g) /mnt/storage/immich
+        sudo chown -R $(id -u):$(id -g) /mnt/storage/vaultwarden
         
         echo -e "${GREEN}✓ Storage directories created${NC}"
     else
@@ -105,6 +109,14 @@ EOF
         fi
     else
         echo -e "${YELLOW}• .env.immich already exists, skipping${NC}"
+    fi
+    
+    # Generate Vaultwarden admin token if placeholder exists
+    if grep -q "CHANGE_ME_GENERATE_SECURE_TOKEN" .env 2>/dev/null; then
+        VAULT_TOKEN=$(openssl rand -base64 48)
+        sed -i "s|CHANGE_ME_GENERATE_SECURE_TOKEN|$VAULT_TOKEN|" .env
+        echo -e "${GREEN}✓ Vaultwarden admin token generated${NC}"
+        echo -e "${YELLOW}  Admin token saved in .env - keep this file secure!${NC}"
     fi
 }
 
@@ -187,19 +199,27 @@ print_summary() {
     echo "1. Review and update .env.immich with a secure password (if not auto-generated)"
     echo "2. Start the services: docker-compose up -d"
     echo "3. Access the services:"
-    echo "   - Jellyfin:  http://localhost:8096"
-    echo "   - Immich:    http://localhost:2283"
+    echo "   - Jellyfin:     http://localhost:8096"
+    echo "   - Immich:       http://localhost:2283"
+    echo "   - Vaultwarden:  http://localhost:8222"
+    echo "   - Vaultwarden Admin: http://localhost:8222/admin"
     echo ""
     echo "4. Run initial SnapRAID sync: sudo snapraid sync"
+    echo ""
+    echo "5. Vaultwarden setup:"
+    echo "   - Create your account at http://localhost:8222"
+    echo "   - After creating accounts, disable signups in .env:"
+    echo "     VAULTWARDEN_SIGNUPS_ALLOWED=false"
+    echo "   - Then restart: docker-compose up -d vaultwarden"
     echo ""
     echo "Automated backups:"
     echo "   - Rsync backup runs daily at 2 AM (~/Documents, ~/Downloads, ~/Music)"
     echo "   - SnapRAID sync runs daily at 3 AM"
-    echo "   - Check backup status: systemctl status rsync-backup.timer"
-    echo "   - View backup logs: cat /var/log/rsync-backup.log"
+    echo "   - Vaultwarden data is protected by SnapRAID at /mnt/storage/vaultwarden/"
     echo ""
-    echo "For iPhone setup:"
+    echo "For iPhone/mobile setup:"
     echo "   - Install 'Immich' app from App Store for photo backup"
+    echo "   - Install 'Bitwarden' app and set self-hosted server URL"
     echo ""
 }
 

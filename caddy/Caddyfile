@@ -1,0 +1,43 @@
+# Caddyfile for Home Server Reverse Proxy
+# Uses internal TLS certificates (self-signed) for local network
+
+# ===========================================
+# VAULTWARDEN - Password Manager
+# ===========================================
+vault.{$BASE_DOMAIN} {
+    tls internal
+    encode gzip
+
+    reverse_proxy vaultwarden:80 {
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+# ===========================================
+# JELLYFIN - Media Streaming Server
+# ===========================================
+jellyfin.{$BASE_DOMAIN} {
+    tls internal
+    encode gzip
+
+    # Jellyfin runs on host network, proxy via host gateway
+    reverse_proxy host.docker.internal:8096 {
+        header_up X-Real-IP {remote_host}
+        # Large buffer for media streaming
+        flush_interval -1
+    }
+}
+
+# ===========================================
+# IMMICH - Photo & Video Backup
+# ===========================================
+immich.{$BASE_DOMAIN} {
+    tls internal
+    encode gzip
+
+    reverse_proxy immich-server:2283 {
+        header_up X-Real-IP {remote_host}
+        # Large uploads for photos/videos
+        flush_interval -1
+    }
+}
