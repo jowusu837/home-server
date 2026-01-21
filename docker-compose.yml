@@ -156,6 +156,31 @@ services:
       retries: 3
       start_period: 10s
 
+  # ===========================================
+  # SAMBA - File Sharing (SMB)
+  # ===========================================
+  samba:
+    image: dperson/samba
+    container_name: samba
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=${TZ:-Africa/Accra}
+      - USERID=${PUID:-1000}
+      - GROUPID=${PGID:-1000}
+    env_file:
+      - .env.samba
+    volumes:
+      - /home/vowusu/Documents:/share/Documents:rw
+      - ./samba/entrypoint.sh:/entrypoint.sh:ro
+    command: /entrypoint.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep smbd || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 # ===========================================
 # VOLUMES
 # ===========================================

@@ -7,6 +7,7 @@ A self-hosted home server stack with media streaming, photo backup, and automate
 - **Jellyfin** - Media streaming server (movies, TV shows, music)
 - **Immich** - Photo and video backup (iCloud/Google Photos replacement)
 - **Vaultwarden** - Self-hosted password manager (Bitwarden-compatible)
+- **Samba** - File sharing over LAN (access files from iOS/Android/desktop)
 - **Rsync Backup** - Automated daily backup of home folders (Documents, Downloads, Music)
 - **mergerfs + SnapRAID** - Storage pooling with parity protection
 
@@ -21,6 +22,10 @@ A self-hosted home server stack with media streaming, photo backup, and automate
 │  │  Jellyfin   │  │   Immich    │  │ Vaultwarden │         │
 │  │  :8096      │  │   :2283     │  │   :8222     │         │
 │  └─────────────┘  └─────────────┘  └─────────────┘         │
+│  ┌─────────────┐                                            │
+│  │   Samba     │  ← File sharing (iOS/Android/desktop)      │
+│  │  :445 (SMB) │                                            │
+│  └─────────────┘                                            │
 ├─────────────────────────────────────────────────────────────┤
 │  Storage Layer                                               │
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -110,11 +115,12 @@ sudo snapraid sync
 
 ## Service Access
 
-| Service         | URL                           | Description                    |
-|-----------------|-------------------------------|--------------------------------|
-| Jellyfin        | https://jellyfin.homeserver.local | Media streaming            |
-| Immich          | https://immich.homeserver.local   | Photo/video backup         |
-| Vaultwarden     | https://vault.homeserver.local    | Password manager           |
+| Service         | URL                               | Description                    |
+|-----------------|-----------------------------------|--------------------------------|
+| Jellyfin        | https://jellyfin.homeserver.local | Media streaming                |
+| Immich          | https://immich.homeserver.local   | Photo/video backup             |
+| Vaultwarden     | https://vault.homeserver.local    | Password manager               |
+| Samba           | smb://YOUR_SERVER_IP              | LAN file sharing               |
 
 > **Note:** Replace `homeserver.local` with your configured `BASE_DOMAIN` from `.env.caddy`
 
@@ -196,6 +202,70 @@ After these steps, Safari and apps like Immich will trust your server's HTTPS ce
 4. Select **Self-hosted** and enter: `https://vault.homeserver.local`
 5. Create an account or log in
 6. Enable **Face ID/Touch ID** for quick access
+
+## File Sharing with Samba
+
+Samba provides SMB file sharing, allowing you to access your Documents folder from any device on your local network.
+
+### Configuration
+
+1. **Set your SMB password** in `.env.samba`:
+   ```bash
+   # Edit the file and set a secure password
+   nano .env.samba
+   ```
+
+2. **Start the Samba container:**
+   ```bash
+   docker-compose up -d samba
+   ```
+
+### Connecting from iOS
+
+1. Open the **Files** app
+2. Tap the **...** menu (top right) → **Connect to Server**
+3. Enter: `smb://YOUR_SERVER_IP` (e.g., `smb://192.168.1.100`)
+4. Select **Registered User**
+5. Enter your username and password from `.env.samba`
+6. Your Documents folder will appear under **Shared**
+
+### Connecting from Android
+
+**Android 11+ (built-in):**
+1. Open the **Files** app
+2. Tap **Menu (☰)** → **Network storage** → **Add network storage**
+3. Enter your server IP and credentials
+
+**Any Android version (recommended apps):**
+- **Solid Explorer** - Best SMB implementation
+- **CX File Explorer** - Free and reliable
+- **Total Commander** with LAN plugin
+
+### Connecting from Desktop
+
+| OS      | Method                                                    |
+|---------|-----------------------------------------------------------|
+| Windows | File Explorer → `\\YOUR_SERVER_IP\Documents`              |
+| macOS   | Finder → Go → Connect to Server → `smb://YOUR_SERVER_IP`  |
+| Linux   | File manager → `smb://YOUR_SERVER_IP` or mount via fstab  |
+
+### Sharing Additional Folders
+
+To share more folders, edit the Samba service in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - /home/vowusu/Documents:/share/Documents:rw
+  - /home/vowusu/Downloads:/share/Downloads:rw
+  - /home/vowusu/Music:/share/Music:rw
+command: >
+  -u "${SMB_USER:-vowusu};${SMB_PASSWORD}"
+  -s "Documents;/share/Documents;yes;no;no;${SMB_USER:-vowusu}"
+  -s "Downloads;/share/Downloads;yes;no;no;${SMB_USER:-vowusu}"
+  -s "Music;/share/Music;yes;no;no;${SMB_USER:-vowusu}"
+```
+
+Then restart: `docker-compose up -d samba`
 
 ## Vaultwarden Setup
 
@@ -345,9 +415,11 @@ Vaultwarden data is stored at `/mnt/storage/vaultwarden/data` and protected by S
 ├── rsync-backup.service      # Rsync systemd service
 ├── rsync-backup.timer        # Rsync systemd timer
 ├── env.immich.example        # Immich env template
+├── env.samba.example         # Samba env template
 ├── .env                      # Main environment config
 ├── .env.immich               # Immich environment (generated)
 ├── .env.caddy                # Caddy environment (BASE_DOMAIN)
+├── .env.samba                # Samba credentials (SMB_USER, SMB_PASSWORD)
 └── jellyfin/                 # Jellyfin config (local)
 ```
 
@@ -374,7 +446,7 @@ docker-compose logs -f jellyfin
 ### Backup Configuration
 
 Important files to backup:
-- `.env` and `.env.immich` (contains secrets!)
+- `.env`, `.env.immich`, `.env.samba`, `.env.caddy` (contain secrets!)
 - `jellyfin/config/`
 - Immich database (use Immich's built-in backup feature)
 - Vaultwarden data (protected by SnapRAID at `/mnt/storage/vaultwarden/`)
@@ -444,6 +516,26 @@ sudo snapraid fix
 # Then restart Vaultwarden
 docker-compose restart vaultwarden
 ```
+
+### Samba connection issues
+```bash
+# Check if Samba is running
+docker-compose ps samba
+
+# Check container logs
+docker-compose logs samba
+
+# Verify SMB ports are listening (445, 139)
+ss -tlnp | grep -E '445|139'
+
+# Restart Samba
+docker-compose restart samba
+```
+
+**Common issues:**
+- **"Connection refused"** - Ensure container is running and firewall allows ports 445/139
+- **"Authentication failed"** - Check credentials in `.env.samba`
+- **Can't see shares** - Ensure the shared folder exists and has correct permissions
 
 ## License
 
